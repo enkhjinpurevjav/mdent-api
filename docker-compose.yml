@@ -1,0 +1,31 @@
+version: "3.9"
+
+networks:
+  mdent_net:
+    external: true   # reuse the network from mdent-core
+
+services:
+  mdent_api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: mdent_api
+    working_dir: /app
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      DATABASE_URL: ${DATABASE_URL}
+    command: sh -c "npx prisma migrate deploy && node server.js"
+    depends_on:
+      - wait_postgres
+    ports:
+      - "8080:3000"   # Open at http://<YOUR_SERVER_IP>:8080
+    networks:
+      - mdent_net
+    restart: always
+
+  wait_postgres:
+    image: alpine:3.20
+    command: sh -c "apk add --no-cache postgresql-client >/dev/null && until pg_isready -h postgres -p 5432 -U mdent; do echo waiting for db; sleep 2; done"
+    networks:
+      - mdent_net

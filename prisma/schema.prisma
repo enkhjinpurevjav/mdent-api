@@ -1,0 +1,272 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+
+
+
+
+enum Role {
+  ADMIN
+  DOCTOR
+  NURSE
+  FRONTDESK
+  STAFF
+}
+
+enum ApptStatus {
+  SCHEDULED
+  CONFIRMED
+  COMPLETED
+  CANCELLED
+  NO_SHOW
+}
+
+enum ApptSource {
+  WEB
+  CALL
+  WALKIN
+}
+
+enum MediaKind {
+  ORAL_PHOTO
+  XRAY
+  DOCUMENT
+}
+
+enum InvoiceStatus {
+  UNPAID
+  PARTIAL
+  PAID
+  CANCELLED
+}
+
+enum PayMethod {
+  QPAY
+  CASH
+  CARD
+  BANK
+}
+
+enum PayStatus {
+  PENDING
+  SUCCESS
+  FAILED
+  REFUNDED
+}
+
+
+
+
+
+model Branch {
+  id          String        @id @default(cuid())
+  name        String
+  code        String        @unique
+  address     String?
+  phone       String?
+
+  users       User[]
+  patients    Patient[]
+  rooms       Room[]
+  appointments Appointment[]
+  encounters  Encounter[]
+  media       Media[]
+  invoices    Invoice[]
+
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+}
+
+model User {
+  id            String          @id @default(cuid())
+  email         String          @unique
+  password      String
+  name          String?
+  role          Role            @default(STAFF)
+  branchId      String?
+  branch        Branch?         @relation(fields: [branchId], references: [id])
+  appointments  Appointment[]   @relation("DoctorAppointments")
+  encounters    Encounter[]     @relation("DoctorEncounters")
+
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+}
+
+model Patient {
+  id            String        @id @default(cuid())
+  firstName     String
+  lastName      String
+  phone         String?                      // NOT unique
+  email         String?       @unique
+  regNo         String?       @unique        // Mongolian reg. number
+  birthDate     DateTime?
+  gender        String?
+  branchId      String?
+  branch        Branch?       @relation(fields: [branchId], references: [id])
+
+  encounters    Encounter[]
+  appointments  Appointment[]
+  media         Media[]
+  invoices      Invoice[]
+
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+}
+
+model Room {
+  id        String   @id @default(cuid())
+  branchId  String
+  branch    Branch   @relation(fields: [branchId], references: [id])
+  name      String
+
+  // add this line ↓
+  appointments Appointment[]    // back-relation for Appointment.room
+
+  encounters Encounter[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+
+
+
+model Appointment {
+  id         String       @id @default(cuid())
+  patientId  String?
+  patient    Patient?     @relation(fields: [patientId], references: [id])
+
+  doctorId   String?
+  doctor     User?        @relation("DoctorAppointments", fields: [doctorId], references: [id])
+
+  branchId   String
+  branch     Branch       @relation(fields: [branchId], references: [id])
+
+  roomId     String?
+  room       Room?        @relation(fields: [roomId], references: [id])
+
+  startAt    DateTime
+  endAt      DateTime
+  status     ApptStatus   @default(SCHEDULED)
+  reason     String?
+  source     ApptSource   @default(WEB)
+
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime     @updatedAt
+
+  @@index([branchId, doctorId, startAt])
+}
+
+
+
+
+
+
+
+model Encounter {
+  id         String     @id @default(cuid())
+
+  patientId  String
+  patient    Patient    @relation(fields: [patientId], references: [id])
+
+  doctorId   String?
+  doctor     User?      @relation("DoctorEncounters", fields: [doctorId], references: [id])
+
+  branchId   String
+  branch     Branch     @relation(fields: [branchId], references: [id])
+
+  roomId     String?
+  room       Room?      @relation(fields: [roomId], references: [id])
+
+  startedAt  DateTime   @default(now())
+  endedAt    DateTime?
+  notes      String?
+
+  media      Media[]
+  invoices   Invoice[]
+
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+
+  @@index([branchId, doctorId, startedAt])   // all three fields exist above
+}
+
+model Media {
+  id           String     @id @default(cuid())
+  patientId    String
+  patient      Patient    @relation(fields: [patientId], references: [id])
+
+  encounterId  String?
+  encounter    Encounter? @relation(fields: [encounterId], references: [id])
+
+  kind         MediaKind
+  toothCode    String?
+  title        String?
+  url          String
+  meta         Json?
+
+  branchId     String
+  branch       Branch     @relation(fields: [branchId], references: [id])
+
+  createdAt    DateTime   @default(now())
+}
+
+model Invoice {
+  id           String      @id @default(cuid())
+
+  patientId    String
+  patient      Patient     @relation(fields: [patientId], references: [id])
+
+  encounterId  String?
+  encounter    Encounter?  @relation(fields: [encounterId], references: [id])
+
+  branchId     String
+  branch       Branch      @relation(fields: [branchId], references: [id])
+
+  number       String      @unique
+  currency     String      @default("MNT")
+  subtotal     Decimal     @db.Decimal(12,2)
+  discount     Decimal     @db.Decimal(12,2) @default(0)
+  tax          Decimal     @db.Decimal(12,2) @default(0)
+  total        Decimal     @db.Decimal(12,2)
+  status       InvoiceStatus @default(UNPAID)
+
+  items        InvoiceItem[]
+  payments     Payment[]
+
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  @@index([branchId, createdAt])
+}
+
+model InvoiceItem {
+  id         String   @id @default(cuid())
+  invoiceId  String
+  invoice    Invoice  @relation(fields: [invoiceId], references: [id])
+  code       String?
+  name       String
+  qty        Decimal  @db.Decimal(10,2) @default(1)
+  unitPrice  Decimal  @db.Decimal(12,2)
+  total      Decimal  @db.Decimal(12,2)
+}
+
+model Payment {
+  id         String   @id @default(cuid())
+  invoiceId  String
+  invoice    Invoice  @relation(fields: [invoiceId], references: [id])
+
+  method     PayMethod
+  amount     Decimal  @db.Decimal(12,2)
+  currency   String   @default("MNT")
+  status     PayStatus @default(PENDING)
+
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
