@@ -29,3 +29,29 @@ services:
     command: sh -c "apk add --no-cache postgresql-client >/dev/null && until pg_isready -h postgres -p 5432 -U mdent; do echo waiting for db; sleep 2; done"
     networks:
       - mdent_net
+version: "3.9"
+
+services:
+  api:
+    build: .
+    image: mdent/api:latest
+    ports:
+      - "8082:3000"                 # keep for mdent_proxy -> host:8082
+    environment:
+      NODE_ENV: production
+      # Use the container hostname for Postgres
+      DATABASE_URL: postgresql://mdent:Monfamily2025@mdent_postgres:5432/mdent?schema=public
+    networks:
+      - mdent_net
+    restart: unless-stopped
+    # Healthcheck (API returns 200 when DB OK if you add /health)
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+networks:
+  mdent_net:
+    external: true
