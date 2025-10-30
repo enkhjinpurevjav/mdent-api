@@ -1,5 +1,7 @@
+// prisma/schema.prisma
 generator client {
-  provider = "prisma-client-js"
+  provider      = "prisma-client-js"
+  binaryTargets = ["native"]
 }
 
 datasource db {
@@ -7,253 +9,79 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+/* ---------- Enums ---------- */
 
-
-
-
-enum Role {
-  ADMIN
-  DOCTOR
-  NURSE
-  FRONTDESK
-  STAFF
+enum Gender {
+  MALE
+  FEMALE
+  OTHER
 }
 
 enum ApptStatus {
   SCHEDULED
-  CONFIRMED
-  COMPLETED
+  CHECKED_IN
   CANCELLED
   NO_SHOW
-}
-
-enum ApptSource {
-  WEB
-  CALL
-  WALKIN
+  COMPLETED
 }
 
 enum MediaKind {
-  ORAL_PHOTO
+  PHOTO
   XRAY
-  DOCUMENT
+  DOC
+  OTHER
 }
 
 enum InvoiceStatus {
   UNPAID
   PARTIAL
   PAID
-  CANCELLED
+  VOID
 }
 
 enum PayMethod {
-  QPAY
   CASH
   CARD
-  BANK
+  QPAY
+  BANK_TRANSFER
+  OTHER
 }
 
-enum PayStatus {
-  PENDING
-  SUCCESS
-  FAILED
-  REFUNDED
-}
+/* ---------- Meta ---------- */
 
-
-
-
-
-model Branch {
-  id          String        @id @default(cuid())
-  name        String
-  code        String        @unique
-  address     String?
-  phone       String?
-
-  users       User[]
-  patients    Patient[]
-  rooms       Room[]
-  appointments Appointment[]
-  encounters  Encounter[]
-  media       Media[]
-  invoices    Invoice[]
-
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
-}
-
-model User {
-  id            String          @id @default(cuid())
-  email         String          @unique
-  password      String
-  name          String?
-  role          Role            @default(STAFF)
-  branchId      String?
-  branch        Branch?         @relation(fields: [branchId], references: [id])
-  appointments  Appointment[]   @relation("DoctorAppointments")
-  encounters    Encounter[]     @relation("DoctorEncounters")
-
-  createdAt     DateTime        @default(now())
-  updatedAt     DateTime        @updatedAt
-}
-
-model Patient {
-  id            String        @id @default(cuid())
-  firstName     String
-  lastName      String
-  phone         String?                      // NOT unique
-  email         String?       @unique
-  regNo         String?       @unique        // Mongolian reg. number
-  birthDate     DateTime?
-  gender        String?
-  branchId      String?
-  branch        Branch?       @relation(fields: [branchId], references: [id])
-
-  encounters    Encounter[]
-  appointments  Appointment[]
-  media         Media[]
-  invoices      Invoice[]
-
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
-}
-
-model Room {
+model _Meta {
   id        String   @id @default(cuid())
-  branchId  String
-  branch    Branch   @relation(fields: [branchId], references: [id])
-  name      String
-
-  // add this line ↓
-  appointments Appointment[]    // back-relation for Appointment.room
-
-  encounters Encounter[]
-
+  key       String   @unique
+  value     String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
 
+/* ---------- Org / People ---------- */
 
+model Branch {
+  id        String    @id @default(cuid())
+  name      String
+  code      String    @unique
+  address   String?
+  phone     String?
+  rooms     Room[]
+  doctors   Doctor[]
+  patients  Patient[]
+  invoices  Invoice[]
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+}
 
-model Appointment {
+model Room {
   id        String   @id @default(cuid())
-  patientId String
-  doctorId  String
+  name      String
   branchId  String
-  roomId    String?
-  startsAt  DateTime
-  endsAt    DateTime
-  status    ApptStatus @default(SCHEDULED)
-  notes     String?
-
-  patient Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
-  doctor  Doctor  @relation(fields: [doctorId], references: [id])
-  branch  Branch  @relation(fields: [branchId], references: [id])
-  room    Room?   @relation(fields: [roomId], references: [id])
-
-  @@index([doctorId, startsAt])
-  @@index([patientId, startsAt])
+  branch    Branch   @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
-model Encounter {
-  id         String   @id @default(cuid())
-  patientId  String
-  doctorId   String
-  branchId   String
-  occurredAt DateTime @default(now())
-  reason     String?
-  notes      String?
-
-  patient Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
-  doctor  Doctor  @relation(fields: [doctorId], references: [id])
-  branch  Branch  @relation(fields: [branchId], references: [id])
-
-  chartNotes ChartNote[]
-  procedures Procedure[]
-  diagnoses  Diagnosis[]
-  media      Media[]
-  invoices   Invoice[]
-
-  @@index([patientId, occurredAt])
-}
-
-
-model Media {
-  id           String     @id @default(cuid())
-  patientId    String
-  patient      Patient    @relation(fields: [patientId], references: [id])
-
-  encounterId  String?
-  encounter    Encounter? @relation(fields: [encounterId], references: [id])
-
-  kind         MediaKind
-  toothCode    String?
-  title        String?
-  url          String
-  meta         Json?
-
-  branchId     String
-  branch       Branch     @relation(fields: [branchId], references: [id])
-
-  createdAt    DateTime   @default(now())
-}
-
-model Invoice {
-  id           String      @id @default(cuid())
-
-  patientId    String
-  patient      Patient     @relation(fields: [patientId], references: [id])
-
-  encounterId  String?
-  encounter    Encounter?  @relation(fields: [encounterId], references: [id])
-
-  branchId     String
-  branch       Branch      @relation(fields: [branchId], references: [id])
-
-  number       String      @unique
-  currency     String      @default("MNT")
-  subtotal     Decimal     @db.Decimal(12,2)
-  discount     Decimal     @db.Decimal(12,2) @default(0)
-  tax          Decimal     @db.Decimal(12,2) @default(0)
-  total        Decimal     @db.Decimal(12,2)
-  status       InvoiceStatus @default(UNPAID)
-
-  items        InvoiceItem[]
-  payments     Payment[]
-
-  createdAt    DateTime    @default(now())
-  updatedAt    DateTime    @updatedAt
-
-  @@index([branchId, createdAt])
-}
-
-model InvoiceItem {
-  id         String   @id @default(cuid())
-  invoiceId  String
-  invoice    Invoice  @relation(fields: [invoiceId], references: [id])
-  code       String?
-  name       String
-  qty        Decimal  @db.Decimal(10,2) @default(1)
-  unitPrice  Decimal  @db.Decimal(12,2)
-  total      Decimal  @db.Decimal(12,2)
-}
-
-model Payment {
-  id         String   @id @default(cuid())
-  invoiceId  String
-  invoice    Invoice  @relation(fields: [invoiceId], references: [id])
-
-  method     PayMethod
-  amount     Decimal  @db.Decimal(12,2)
-  currency   String   @default("MNT")
-  status     PayStatus @default(PENDING)
-
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-}
-
-// --- Staff / Doctor ---
 model Doctor {
   id        String     @id @default(cuid())
   fullName  String
@@ -268,17 +96,98 @@ model Doctor {
   updatedAt DateTime   @updatedAt
 }
 
-// --- Per-tooth charting + clinical ---
+model Patient {
+  id         String       @id @default(cuid())
+  fullName   String
+  regNo      String       @unique         // Mongolia reg no unique
+  phone      String?                        // NOT unique
+  email      String?
+  birthDate  DateTime?
+  gender     Gender?
+  branchId   String?
+  branch     Branch?      @relation(fields: [branchId], references: [id])
+  historyBook HistoryBook?
+  appointments Appointment[]
+  encounters   Encounter[]
+  invoices     Invoice[]
+  media        Media[]
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime     @updatedAt
+}
+
+/* Optional: keep if you already have a User table */
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  fullName  String?
+  role      String?  // ADMIN, STAFF, etc.
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+/* ---------- Scheduling & Clinical ---------- */
+
+model Appointment {
+  id         String     @id @default(cuid())
+  patientId  String
+  doctorId   String
+  branchId   String
+  roomId     String?
+  startsAt   DateTime
+  endsAt     DateTime
+  status     ApptStatus @default(SCHEDULED)
+  notes      String?
+
+  patient    Patient    @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  doctor     Doctor     @relation(fields: [doctorId], references: [id])
+  branch     Branch     @relation(fields: [branchId], references: [id])
+  room       Room?      @relation(fields: [roomId], references: [id])
+
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+
+  @@index([doctorId, startsAt])
+  @@index([patientId, startsAt])
+}
+
+model Encounter {
+  id          String     @id @default(cuid())
+  patientId   String
+  doctorId    String
+  branchId    String
+  occurredAt  DateTime   @default(now())
+  reason      String?
+  notes       String?
+
+  patient     Patient    @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  doctor      Doctor     @relation(fields: [doctorId], references: [id])
+  branch      Branch     @relation(fields: [branchId], references: [id])
+
+  chartNotes  ChartNote[]
+  procedures  Procedure[]
+  diagnoses   Diagnosis[]
+  media       Media[]
+  invoices    Invoice[]
+
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  @@index([patientId, occurredAt])
+}
+
+/* Per-tooth notes (FDI) */
 model ChartNote {
   id          String    @id @default(cuid())
   encounterId String
   patientId   String
-  toothCode   String?   // FDI code
+  toothCode   String?    // FDI code; null = whole mouth
   note        String
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-  encounter   Encounter @relation(fields: [encounterId], references: [id], onDelete: Cascade)
-  patient     Patient   @relation(fields: [patientId], references: [id])
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  encounter   Encounter  @relation(fields: [encounterId], references: [id], onDelete: Cascade)
+  patient     Patient    @relation(fields: [patientId], references: [id])
+
   @@index([patientId, toothCode])
   @@index([encounterId])
 }
@@ -295,10 +204,13 @@ model Procedure {
   unitPrice     Decimal   @db.Decimal(12,2)
   discountPct   Decimal?  @db.Decimal(5,2)
   totalAmount   Decimal   @db.Decimal(12,2)
+
   encounter     Encounter @relation(fields: [encounterId], references: [id], onDelete: Cascade)
   patient       Patient   @relation(fields: [patientId], references: [id])
+
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
+
   @@index([patientId])
   @@index([encounterId])
 }
@@ -311,19 +223,24 @@ model Diagnosis {
   description   String
   toothCode     String?
   isPrimary     Boolean   @default(false)
+
   encounter     Encounter @relation(fields: [encounterId], references: [id], onDelete: Cascade)
   patient       Patient   @relation(fields: [patientId], references: [id])
+
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
+
   @@index([patientId])
 }
 
-// --- Digital History Book ---
+/* ---------- Digital History Book ---------- */
+
 model HistoryBook {
   id          String       @id @default(cuid())
   patientId   String       @unique
   bookNumber  String       @unique
   entries     HistoryEntry[]
+
   patient     Patient      @relation(fields: [patientId], references: [id], onDelete: Cascade)
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
@@ -334,12 +251,86 @@ model HistoryEntry {
   historyBookId String
   title         String
   details       String?
-  attachedId    String?
+  attachedId    String?     // optional Media id
   createdAt     DateTime    @default(now())
+
   book          HistoryBook @relation(fields: [historyBookId], references: [id], onDelete: Cascade)
 }
 
-// --- Invoice extras (if not already) ---
+/* ---------- Media ---------- */
+
+model Media {
+  id          String     @id @default(cuid())
+  patientId   String
+  encounterId String?
+  toothCode   String?
+  kind        MediaKind  @default(OTHER)
+  url         String
+  caption     String?
+  createdAt   DateTime   @default(now())
+
+  patient     Patient    @relation(fields: [patientId], references: [id])
+  encounter   Encounter? @relation(fields: [encounterId], references: [id], onDelete: SetNull)
+
+  @@index([patientId, encounterId])
+}
+
+/* ---------- Billing ---------- */
+
+model Invoice {
+  id           String        @id @default(cuid())
+  patientId    String
+  encounterId  String?
+  branchId     String?
+  number       String        @unique
+  status       InvoiceStatus @default(UNPAID)
+  subtotal     Decimal       @db.Decimal(12,2)
+  discount     Decimal?      @db.Decimal(12,2)
+  tax          Decimal?      @db.Decimal(12,2)
+  total        Decimal       @db.Decimal(12,2)
+
+  items        InvoiceItem[]
+  payments     Payment[]
+  ebarimt      EBarimtReceipt?
+
+  patient      Patient       @relation(fields: [patientId], references: [id])
+  encounter    Encounter?    @relation(fields: [encounterId], references: [id], onDelete: SetNull)
+  branch       Branch?       @relation(fields: [branchId], references: [id])
+
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  @@index([patientId])
+}
+
+model InvoiceItem {
+  id          String     @id @default(cuid())
+  invoiceId   String
+  procedureId String?
+  description String
+  quantity    Int        @default(1)
+  unitPrice   Decimal    @db.Decimal(12,2)
+  total       Decimal    @db.Decimal(12,2)
+
+  invoice     Invoice    @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  procedure   Procedure? @relation(fields: [procedureId], references: [id], onDelete: SetNull)
+}
+
+model Payment {
+  id            String    @id @default(cuid())
+  invoiceId     String
+  method        PayMethod
+  amount        Decimal   @db.Decimal(12,2)
+  paidAt        DateTime  @default(now())
+
+  // QPay fields
+  qpayInvoiceId String?
+  qpayQrText    String?
+  qpayStatus    String?
+
+  invoice       Invoice   @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+}
+
 model EBarimtReceipt {
   id         String   @id @default(cuid())
   invoiceId  String   @unique
@@ -349,4 +340,3 @@ model EBarimtReceipt {
   dateIssued DateTime?
   invoice    Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
 }
-
