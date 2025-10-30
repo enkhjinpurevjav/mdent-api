@@ -27,3 +27,23 @@ CMD ["sh","-lc", "\
   echo '[entrypoint] prisma migrate deploy...'; npx prisma migrate deploy --schema=./prisma/schema.prisma || (echo '[entrypoint] migrate failed; trying db push' && npx prisma db push --schema=./prisma/schema.prisma); \
   echo '[entrypoint] starting server...'; exec node server.js \
 "]
+
+# Build + runtime (simple) – Debian base to match Prisma binary
+FROM node:20
+
+WORKDIR /app
+
+# Install deps first (better layer caching)
+COPY package*.json ./
+RUN npm ci
+
+# Generate Prisma client at build time (prevents crash loops)
+COPY prisma ./prisma
+RUN npx prisma generate
+
+# Copy the rest
+COPY . .
+
+EXPOSE 3000
+CMD ["node","server.js"]
+
