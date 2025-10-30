@@ -136,66 +136,48 @@ model Room {
 
 
 
-
 model Appointment {
-  id         String       @id @default(cuid())
-  patientId  String?
-  patient    Patient?     @relation(fields: [patientId], references: [id])
+  id        String   @id @default(cuid())
+  patientId String
+  doctorId  String
+  branchId  String
+  roomId    String?
+  startsAt  DateTime
+  endsAt    DateTime
+  status    ApptStatus @default(SCHEDULED)
+  notes     String?
 
-  doctorId   String?
-  doctor     User?        @relation("DoctorAppointments", fields: [doctorId], references: [id])
+  patient Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  doctor  Doctor  @relation(fields: [doctorId], references: [id])
+  branch  Branch  @relation(fields: [branchId], references: [id])
+  room    Room?   @relation(fields: [roomId], references: [id])
 
-  branchId   String
-  branch     Branch       @relation(fields: [branchId], references: [id])
-
-  roomId     String?
-  room       Room?        @relation(fields: [roomId], references: [id])
-
-  startAt    DateTime
-  endAt      DateTime
-  status     ApptStatus   @default(SCHEDULED)
-  reason     String?
-  source     ApptSource   @default(WEB)
-
-  createdAt  DateTime     @default(now())
-  updatedAt  DateTime     @updatedAt
-
-  @@index([branchId, doctorId, startAt])
+  @@index([doctorId, startsAt])
+  @@index([patientId, startsAt])
 }
 
-
-
-
-
-
-
 model Encounter {
-  id         String     @id @default(cuid())
-
+  id         String   @id @default(cuid())
   patientId  String
-  patient    Patient    @relation(fields: [patientId], references: [id])
-
-  doctorId   String?
-  doctor     User?      @relation("DoctorEncounters", fields: [doctorId], references: [id])
-
+  doctorId   String
   branchId   String
-  branch     Branch     @relation(fields: [branchId], references: [id])
-
-  roomId     String?
-  room       Room?      @relation(fields: [roomId], references: [id])
-
-  startedAt  DateTime   @default(now())
-  endedAt    DateTime?
+  occurredAt DateTime @default(now())
+  reason     String?
   notes      String?
 
+  patient Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  doctor  Doctor  @relation(fields: [doctorId], references: [id])
+  branch  Branch  @relation(fields: [branchId], references: [id])
+
+  chartNotes ChartNote[]
+  procedures Procedure[]
+  diagnoses  Diagnosis[]
   media      Media[]
   invoices   Invoice[]
 
-  createdAt  DateTime   @default(now())
-  updatedAt  DateTime   @updatedAt
-
-  @@index([branchId, doctorId, startedAt])   // all three fields exist above
+  @@index([patientId, occurredAt])
 }
+
 
 model Media {
   id           String     @id @default(cuid())
