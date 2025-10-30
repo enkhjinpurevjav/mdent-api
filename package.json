@@ -27,3 +27,12 @@
     "zod": "^3.23.8"
   }
 }
+{
+  "scripts": {
+    "start": "node server.js",
+    "db:push": "prisma db push",
+    "db:migrate:dev": "prisma migrate dev --name init",
+    "db:migrate:deploy": "prisma migrate deploy",
+    "db:generate": "prisma generate"
+  }
+}
