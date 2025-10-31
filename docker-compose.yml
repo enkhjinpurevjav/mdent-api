@@ -12,7 +12,7 @@ services:
     environment:
       NODE_ENV: production
       PORT: 3000
-      # IMPORTANT: Set DATABASE_URL, JWT_SECRET, etc. in Portainer (Environment or Secrets)
+      # Set DATABASE_URL, JWT_SECRET, etc. in Portainer (Environment or Secrets)
     volumes:
       - /opt/mdent-api:/app
     ports:
@@ -31,8 +31,8 @@ services:
   mdent_frontend:
     image: nginx:alpine
     volumes:
-      - /opt/mdent-frontend/dist:/usr/share/nginx/html:ro
-     
+      - ./public:/usr/share/nginx/html:ro
+      - ./nginx.conf:/etc/nginx/http.d/default.conf:ro
     restart: unless-stopped
     networks:
       - default
