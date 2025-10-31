@@ -14,13 +14,13 @@ services:
     image: enkhjinpurevjav/mdent-api:latest
     working_dir: /app
     env_file:
-      - .env                       # create .env and keep secrets out of git (or use Portainer secrets)
+      - .env                       # create .env (do NOT commit secrets) or use Portainer secrets
     environment:
       NODE_ENV: production
       PORT: 3000
-    # Use host-volume for development only. For production, comment/remove the volumes block:
+    # For development you may keep a host volume; for production remove it:
     # volumes:
-    #   - /opt/mdent-api:/app       # optional: only if you want live-edit on the host
+    #   - /opt/mdent-api:/app
     ports:
       - "8082:3000"
     restart: unless-stopped
@@ -34,25 +34,22 @@ services:
     networks:
       - default
 
-  # Frontend service - multi-stage build -> nginx (no host mount)
+  # Frontend service - multi-stage build -> nginx (no host mount over /usr/share/nginx/html)
   mdent_frontend:
     build:
-      context: ./frontend            # <-- change this path if your frontend code is elsewhere
+      context: ./frontend            # change to the actual frontend path (use . if repo root)
       dockerfile: Dockerfile.frontend
     image: enkhjinpurevjav/mdent-frontend:latest
     restart: unless-stopped
     networks:
       - default
-    # Do NOT mount /usr/share/nginx/html or any host folder over it. The built files are copied into the image.
 
-  # postgres service is assumed to exist as mdent_postgres on the network
-  # If you manage postgres in this compose, add an mdent_postgres service here.
-services:
+  # Postgres service (in-stack). If you already have Postgres in another stack, remove this service and remove depends_on above.
   mdent_postgres:
     image: postgres:15
     environment:
       POSTGRES_USER: mdent
-      POSTGRES_PASSWORD: Monfamily2025   # use Portainer secret in production
+      POSTGRES_PASSWORD: Monfamily2025   # move to Portainer secrets or .env in production
       POSTGRES_DB: mdent_test
     volumes:
       - mdent_postgres_data:/var/lib/postgresql/data
