@@ -1,4 +1,3 @@
-// prisma/schema.prisma
 generator client {
   provider      = "prisma-client-js"
   binaryTargets = ["native"]
@@ -49,7 +48,7 @@ enum PayMethod {
 
 /* ---------- Meta ---------- */
 
-model _Meta {
+model Meta {
   id        String   @id @default(cuid())
   key       String   @unique
   value     String?
@@ -60,17 +59,21 @@ model _Meta {
 /* ---------- Org / People ---------- */
 
 model Branch {
-  id        String    @id @default(cuid())
-  name      String
-  code      String    @unique
-  address   String?
-  phone     String?
-  rooms     Room[]
-  doctors   Doctor[]
-  patients  Patient[]
-  invoices  Invoice[]
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  id         String        @id @default(cuid())
+  name       String
+  code       String        @unique
+  address    String?
+  phone      String?
+  rooms      Room[]
+  doctors    Doctor[]
+  patients   Patient[]
+  invoices   Invoice[]
+  // added back-relations:
+  appointments Appointment[]
+  encounters    Encounter[]
+
+  createdAt  DateTime      @default(now())
+  updatedAt  DateTime      @updatedAt
 }
 
 model Room {
@@ -78,49 +81,58 @@ model Room {
   name      String
   branchId  String
   branch    Branch   @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  // added back-relation:
+  appointments Appointment[]
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
 
 model Doctor {
-  id        String     @id @default(cuid())
-  fullName  String
-  regNo     String?
-  phone     String?
-  email     String?
-  branchId  String?
-  branch    Branch?    @relation(fields: [branchId], references: [id])
+  id           String        @id @default(cuid())
+  fullName     String
+  regNo        String?
+  phone        String?
+  email        String?
+  branchId     String?
+  branch       Branch?       @relation(fields: [branchId], references: [id])
   appointments Appointment[]
   encounters   Encounter[]
+
   createdAt DateTime   @default(now())
   updatedAt DateTime   @updatedAt
 }
 
 model Patient {
-  id         String       @id @default(cuid())
-  fullName   String
-  regNo      String       @unique         // Mongolia reg no unique
-  phone      String?                        // NOT unique
-  email      String?
-  birthDate  DateTime?
-  gender     Gender?
-  branchId   String?
-  branch     Branch?      @relation(fields: [branchId], references: [id])
-  historyBook HistoryBook?
+  id           String        @id @default(cuid())
+  fullName     String
+  regNo        String        @unique
+  phone        String?
+  email        String?
+  birthDate    DateTime?
+  gender       Gender?
+  branchId     String?
+  branch       Branch?       @relation(fields: [branchId], references: [id])
+  historyBook  HistoryBook?
   appointments Appointment[]
   encounters   Encounter[]
   invoices     Invoice[]
   media        Media[]
+  // added back-relations:
+  chartNotes   ChartNote[]
+  procedures   Procedure[]
+  diagnoses    Diagnosis[]
+
   createdAt  DateTime     @default(now())
   updatedAt  DateTime     @updatedAt
 }
 
-/* Optional: keep if you already have a User table */
+/* Optional User */
 model User {
   id        String   @id @default(cuid())
   email     String   @unique
   fullName  String?
-  role      String?  // ADMIN, STAFF, etc.
+  role      String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
@@ -207,6 +219,8 @@ model Procedure {
 
   encounter     Encounter @relation(fields: [encounterId], references: [id], onDelete: Cascade)
   patient       Patient   @relation(fields: [patientId], references: [id])
+  // added back-relation for InvoiceItem.procedure
+  invoiceItems  InvoiceItem[]
 
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
