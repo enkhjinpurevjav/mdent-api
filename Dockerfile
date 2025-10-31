@@ -22,7 +22,7 @@ RUN npm i -g npm@10 && npm -v
 COPY package*.json ./
 # Use a cache mount so rebuilds are faster
 RUN --mount=type=cache,target=/root/.npm \
-    bash -lc 'if [ -f package-lock.json ]; then npm ci --omit=optional; else npm install --omit=optional; fi' \
+    sh -lc 'if [ -f package-lock.json ]; then npm ci --omit=optional; else npm install --omit=optional; fi' \
     && npm config set legacy-peer-deps true
 
 # Generate Prisma client at build time (faster startup, fewer surprises)
