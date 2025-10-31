@@ -3,65 +3,36 @@ version: "3.9"
 networks:
   default:
     external: true
-    name: mdent-core_mdent_net  # keep your existing network
+    name: mdent-core_mdent_net
 
 services:
-  # API service - build from your repo Dockerfile
   mdent_api:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    image: enkhjinpurevjav/mdent-api:latest
+    image: node:20-bullseye
     working_dir: /app
     environment:
       NODE_ENV: production
       PORT: 3000
-      # NOTE: set DATABASE_URL and secrets in Portainer (Environment or Secrets) — do NOT commit passwords here
-    # For development you may keep a host volume; for production remove it:
-    # volumes:
-    #   - /opt/mdent-api:/app
+      # IMPORTANT: Set DATABASE_URL, JWT_SECRET, etc. in Portainer (Environment or Secrets)
+    volumes:
+      - /opt/mdent-api:/app
     ports:
       - "8082:3000"
+    command: >
+      sh -lc "
+        npm config set fund false audit false &&
+        ( npm install --legacy-peer-deps --omit=optional || npm install --legacy-peer-deps --force ) &&
+        npx prisma generate &&
+        node server.js
+      "
     restart: unless-stopped
-    depends_on:
-      - mdent_postgres
-    healthcheck:
-      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:3000/health || exit 1"]
-      interval: 20s
-      timeout: 5s
-      retries: 5
     networks:
       - default
 
-  # Frontend service - build from repo root (context ".") using Dockerfile.frontend
   mdent_frontend:
-    build:
-      context: .                     # <-- changed from ./frontend to .  (repo root)
-      dockerfile: Dockerfile.frontend
-    image: enkhjinpurevjav/mdent-frontend:latest
-    restart: unless-stopped
-    networks:
-      - default
-    # IMPORTANT: do NOT mount a host folder over /usr/share/nginx/html in production.
-    # If you previously had a volume like /opt/mdent-frontend/dist:/usr/share/nginx/html, REMOVE it.
-
-  # Postgres service (optional in-stack DB)
-  mdent_postgres:
-    image: postgres:15
-    environment:
-      POSTGRES_USER: mdent
-      POSTGRES_PASSWORD: Monfamily2025   # move to Portainer Secrets for production
-      POSTGRES_DB: mdent_test
+    image: nginx:alpine
     volumes:
-      - mdent_postgres_data:/var/lib/postgresql/data
+      - /opt/mdent-frontend/dist:/usr/share/nginx/html:ro
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
     restart: unless-stopped
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U mdent -d mdent_test || exit 1"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
     networks:
       - default
-
-volumes:
-  mdent_postgres_data:
