@@ -1,7 +1,7 @@
 # ------------------------------
 # Stage 1: deps  (build toolchain + install + prisma generate)
 # ------------------------------
-FROM node:20 AS deps
+FROM node:20-bullseye AS deps
 WORKDIR /app
 
 # Keep npm quiet & fast
@@ -15,32 +15,32 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     python3 make g++ pkg-config git ca-certificates \
  && rm -rf /var/lib/apt/lists/*
 
-# Keep npm at a predictable major (v10 works great with most lockfiles)
+# Ensure predictable npm version
 RUN npm i -g npm@10 && npm -v
 
-# Install deps first for better layer caching
+# Copy package metadata
 COPY package*.json ./
 
-# Diagnostic + portable install step
-# - prints PATH and common bin directories
-# - prints node and npm versions (if present)
-# - then tries npm ci, falls back to npm install
-RUN echo ">>> DIAGNOSTICS: PATH=$PATH" && \
-    echo ">>> LIST /usr/local/bin /usr/bin /bin" && ls -la /usr/local/bin /usr/bin /bin || true && \
-    echo ">>> node --version (if present):" && node --version || true && \
-    echo ">>> npm --version (if present):" && npm --version || true && \
-    echo ">>> starting npm install (ci preferred) ..." && \
-    ( npm ci --omit=optional || npm install --omit=optional ) && \
-    npm config set legacy-peer-deps true
+# Diagnostics (separated RUNs so logs show exactly which command fails)
+RUN echo ">>> DIAGNOSTICS: PATH=$PATH"
+RUN echo ">>> LIST /usr/local/bin" && ls -la /usr/local/bin || true
+RUN echo ">>> LIST /usr/bin" && ls -la /usr/bin || true
+RUN echo ">>> LIST /bin" && ls -la /bin || true
+RUN echo ">>> node --version (if present):" && node --version || echo "node missing"
+RUN echo ">>> npm --version (if present):" && npm --version || echo "npm missing"
 
-# Generate Prisma client at build time (faster startup, fewer surprises)
+# Install dependencies (separate RUN so failure is clear)
+RUN npm ci --omit=optional || npm install --omit=optional
+RUN npm config set legacy-peer-deps true
+
+# Generate Prisma client at build time
 COPY prisma ./prisma
 RUN npx prisma generate
 
 # ------------------------------
 # Stage 2: runtime  (slim, non-root)
 # ------------------------------
-FROM node:20
+FROM node:20-bullseye
 WORKDIR /app
 
 ENV NODE_ENV=production \
@@ -62,11 +62,12 @@ RUN npm prune --omit=dev
 RUN chown -R node:node /app
 USER node
 
-# Optional: basic healthcheck hitting /health
+# Install curl for healthcheck (done under root then switch back)
 USER root
 RUN apt-get update && apt-get install -y --no-install-recommends curl \
  && rm -rf /var/lib/apt/lists/*
 USER node
+
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=5 \
   CMD curl -fsS http://127.0.0.1:3000/health || exit 1
 
