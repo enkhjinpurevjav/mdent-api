@@ -3,5 +3,8 @@
     "start": "node server.js",
     "postinstall": "prisma generate",
     "seed": "node prisma/seed.js"
+  },
+  "prisma": {
+    "seed": "node prisma/seed.js"
   }
 }
