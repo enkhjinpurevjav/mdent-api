@@ -15,17 +15,25 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     python3 make g++ pkg-config git ca-certificates \
  && rm -rf /var/lib/apt/lists/*
 
-# Keep npm at a predictable major
+# Keep npm at a predictable major (v10 works great with most lockfiles)
 RUN npm i -g npm@10 && npm -v
 
 # Install deps first for better layer caching
 COPY package*.json ./
-# Use a cache mount if BuildKit is available; try npm ci first, fall back to npm install
-RUN --mount=type=cache,target=/root/.npm \
-    npm ci --omit=optional || npm install --omit=optional \
-    && npm config set legacy-peer-deps true
 
-# Generate Prisma client at build time
+# Diagnostic + portable install step
+# - prints PATH and common bin directories
+# - prints node and npm versions (if present)
+# - then tries npm ci, falls back to npm install
+RUN echo ">>> DIAGNOSTICS: PATH=$PATH" && \
+    echo ">>> LIST /usr/local/bin /usr/bin /bin" && ls -la /usr/local/bin /usr/bin /bin || true && \
+    echo ">>> node --version (if present):" && node --version || true && \
+    echo ">>> npm --version (if present):" && npm --version || true && \
+    echo ">>> starting npm install (ci preferred) ..." && \
+    ( npm ci --omit=optional || npm install --omit=optional ) && \
+    npm config set legacy-peer-deps true
+
+# Generate Prisma client at build time (faster startup, fewer surprises)
 COPY prisma ./prisma
 RUN npx prisma generate
 
