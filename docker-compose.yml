@@ -3,32 +3,47 @@ version: "3.9"
 networks:
   default:
     external: true
-    name: mdent-core_mdent_net  # your existing network
+    name: mdent-core_mdent_net  # keep your existing network
 
 services:
+  # API service - build from your repo Dockerfile
   mdent_api:
-    image: node:20
-  
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: enkhjinpurevjav/mdent-api:latest
     working_dir: /app
+    env_file:
+      - .env                       # create .env and keep secrets out of git (or use Portainer secrets)
     environment:
       NODE_ENV: production
-      # You said you want mdent_test:
-      DATABASE_URL: postgresql://mdent:Monfamily2025@mdent_postgres:5432/mdent_test?schema=public
       PORT: 3000
-    volumes:
-      - /opt/mdent-api:/app   # use the code that already works on your server
+    # Use host-volume for development only. For production, comment/remove the volumes block:
+    # volumes:
+    #   - /opt/mdent-api:/app       # optional: only if you want live-edit on the host
     ports:
       - "8082:3000"
-    command: >
-      sh -lc "
-        npm config set fund false audit false &&
-        ( npm install --legacy-peer-deps --omit=optional || npm install --legacy-peer-deps --force ) &&
-        npx prisma generate &&
-        node server.js
-      "
     restart: unless-stopped
+    depends_on:
+      - mdent_postgres
     healthcheck:
-      test: ["CMD", "curl", "-fsS", "http://localhost:3000/"]
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:3000/health || exit 1"]
       interval: 20s
       timeout: 5s
-      retries: 10
+      retries: 5
+    networks:
+      - default
+
+  # Frontend service - multi-stage build -> nginx (no host mount)
+  mdent_frontend:
+    build:
+      context: ./frontend            # <-- change this path if your frontend code is elsewhere
+      dockerfile: Dockerfile.frontend
+    image: enkhjinpurevjav/mdent-frontend:latest
+    restart: unless-stopped
+    networks:
+      - default
+    # Do NOT mount /usr/share/nginx/html or any host folder over it. The built files are copied into the image.
+
+  # postgres service is assumed to exist as mdent_postgres on the network
+  # If you manage postgres in this compose, add an mdent_postgres service here.
