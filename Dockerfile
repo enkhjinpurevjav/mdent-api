@@ -1,32 +1,46 @@
-# ---- deps stage (has build tools) ----
+# ---- deps stage with build tools (robust) ----
 FROM node:20 AS deps
 WORKDIR /app
 
-# speed & fewer surprises
-ENV NPM_CONFIG_AUDIT=false NPM_CONFIG_FUND=false
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    python3 make g++ git && rm -rf /var/lib/apt/lists/*
+# Keep npm quiet & fast
+ENV NPM_CONFIG_AUDIT=false \
+    NPM_CONFIG_FUND=false \
+    npm_config_loglevel=warn \
+    npm_config_update_notifier=false
 
+# Native build toolchain for node-gyp packages
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    python3 make g++ pkg-config git ca-certificates \
+ && rm -rf /var/lib/apt/lists/*
+
+# Ensure npm major matches what usually generated the lockfile (v10 is common)
+RUN npm i -g npm@10 && npm -v
+
+# Install deps (tolerant to peer deps, skip optional that often fail to compile)
 COPY package*.json ./
 RUN --mount=type=cache,target=/root/.npm \
-    npm install --omit=optional
+    npm install --legacy-peer-deps --omit=optional
 
-# generate prisma client (needs dev deps present)
+# Generate Prisma client at build time
 COPY prisma ./prisma
 RUN npx prisma generate
 
-# ---- runtime stage (slim) ----
+# ---- runtime stage (clean) ----
 FROM node:20
 WORKDIR /app
-ENV NODE_ENV=production NPM_CONFIG_AUDIT=false NPM_CONFIG_FUND=false
 
-# bring node_modules + generated client
+ENV NODE_ENV=production \
+    NPM_CONFIG_AUDIT=false \
+    NPM_CONFIG_FUND=false \
+    npm_config_loglevel=warn
+
+# Bring node_modules + generated client
 COPY --from=deps /app /app
 
-# add the rest of the app
+# Copy the rest of the app
 COPY . .
 
-# strip dev deps from final image
+# Drop dev dependencies to slim the image
 RUN npm prune --omit=dev
 
 EXPOSE 3000
