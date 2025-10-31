@@ -32,7 +32,7 @@ services:
     image: nginx:alpine
     volumes:
       - /opt/mdent-frontend/dist:/usr/share/nginx/html:ro
-      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+     
     restart: unless-stopped
     networks:
       - default
