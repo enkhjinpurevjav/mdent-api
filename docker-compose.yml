@@ -4,22 +4,17 @@ services:
   api:
     build: .
     image: mdent/api:latest
+    container_name: mdent_api         # keep this so nginx proxy works
     ports:
-      - "8082:3000"  # mdent_proxy forwards to host:8082
+      - "8082:3000"                   # mdent_proxy expects host:8082 (and/or you proxy by name)
     environment:
       NODE_ENV: production
       DATABASE_URL: postgresql://mdent:Monfamily2025@mdent_postgres:5432/mdent?schema=public
     networks:
-      - mdent_net
+      - mdent-core_mdent_net                          # attach to your existing network
     restart: unless-stopped
-    # (optional) add a healthcheck AFTER you add /health in server.js
-    # healthcheck:
-    #   test: ["CMD", "curl", "-fsS", "http://localhost:3000/health"]
-    #   interval: 30s
-    #   timeout: 5s
-    #   retries: 3
-    #   start_period: 10s
 
 networks:
-  mdent_net:
+  core:
     external: true
+    name: mdent-core_mdent_net        # <-- your actual network name
