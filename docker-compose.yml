@@ -47,3 +47,23 @@ services:
 
   # postgres service is assumed to exist as mdent_postgres on the network
   # If you manage postgres in this compose, add an mdent_postgres service here.
+services:
+  mdent_postgres:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: mdent
+      POSTGRES_PASSWORD: Monfamily2025   # use Portainer secret in production
+      POSTGRES_DB: mdent_test
+    volumes:
+      - mdent_postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mdent -d mdent_test || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - default
+
+volumes:
+  mdent_postgres_data:
