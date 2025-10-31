@@ -1,51 +1,131 @@
-import { PrismaClient } from '@prisma/client';
-
+// prisma/seed.js
+const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 
 async function main() {
-  // 1. Admin user (upsert = create if not exists)
-  const admin = await prisma.user.upsert({
-    where: { email: 'admin@mdent.cloud' },
+  // Branches
+  const tuv = await prisma.branch.upsert({
+    where: { code: 'TUV' },
     update: {},
-    create: {
-      email: 'admin@mdent.cloud',
-      name: 'Admin',
-      role: 'ADMIN',
-      password: 'changeme123', // ⚠️ plain text for testing only — hash later
+    create: { code: 'TUV', name: 'Tuv Salbar', address: 'Ulaanbaatar', phone: '7700-0001' },
+  });
+
+  const maral = await prisma.branch.upsert({
+    where: { code: 'MARAL' },
+    update: {},
+    create: { code: 'MARAL', name: 'Maral Salbar', address: 'Ulaanbaatar', phone: '7700-0002' },
+  });
+
+  // Rooms
+  const room1 = await prisma.room.create({ data: { name: 'Room 1', branchId: tuv.id } });
+  const room2 = await prisma.room.create({ data: { name: 'Room 2', branchId: tuv.id } });
+
+  // Doctors
+  const drEelen = await prisma.doctor.create({
+    data: { fullName: 'Dr. Eelen', branchId: tuv.id, phone: '9911-0001' },
+  });
+
+  // Patients (regNo unique, phone not unique)
+  const patientTemu = await prisma.patient.create({
+    data: {
+      fullName: 'Temuujin Baatar',
+      regNo: 'АА12345678',
+      phone: '99110002',
+      gender: 'MALE',
+      branchId: tuv.id,
+      birthDate: new Date('2015-06-01'),
     },
   });
 
-  // 2. Patient
-  const patient = await prisma.patient.create({
-    data: {
-      firstName: 'John',
-      lastName: 'Doe',
-      phone: '+976-88888888',
-      email: 'john.doe@example.com',
-      notes: 'Test patient created from seed.js',
-    },
+  // History book
+  await prisma.historyBook.create({
+    data: { patientId: patientTemu.id, bookNumber: 'HB-00001' },
   });
 
-  // 3. Appointment
-  await prisma.appointment.create({
+  // Appointment
+  const now = new Date();
+  const in30 = new Date(now.getTime() + 30 * 60 * 1000);
+  const appt = await prisma.appointment.create({
     data: {
-      patientId: patient.id,
-      userId: admin.id,
-      startsAt: new Date(Date.now() + 60 * 60 * 1000),
-      endsAt: new Date(Date.now() + 2 * 60 * 60 * 1000),
+      patientId: patientTemu.id,
+      doctorId: drEelen.id,
+      branchId: tuv.id,
+      roomId: room1.id,
+      startsAt: now,
+      endsAt: in30,
       status: 'SCHEDULED',
-      notes: 'Initial checkup appointment',
+      notes: 'Initial checkup',
     },
   });
 
-  console.log('✅ Seed completed');
+  // Encounter + notes
+  const enc = await prisma.encounter.create({
+    data: {
+      patientId: patientTemu.id,
+      doctorId: drEelen.id,
+      branchId: tuv.id,
+      occurredAt: now,
+      reason: 'Tooth sensitivity',
+      notes: 'Mild sensitivity on 26.',
+    },
+  });
+
+  await prisma.chartNote.create({
+    data: {
+      encounterId: enc.id,
+      patientId: patientTemu.id,
+      toothCode: '26', // FDI
+      note: 'Visible white spot, early demineralization.',
+    },
+  });
+
+  // Procedure + Invoice + Payment
+  const proc = await prisma.procedure.create({
+    data: {
+      encounterId: enc.id,
+      patientId: patientTemu.id,
+      code: 'FL-26',
+      name: 'Fluoride varnish (tooth 26)',
+      toothCode: '26',
+      unitPrice: 25000.00,
+      quantity: 1,
+      totalAmount: 25000.00,
+    },
+  });
+
+  const inv = await prisma.invoice.create({
+    data: {
+      patientId: patientTemu.id,
+      encounterId: enc.id,
+      branchId: tuv.id,
+      number: 'INV-00001',
+      status: 'PAID',
+      subtotal: 25000.00,
+      tax: 0,
+      discount: 0,
+      total: 25000.00,
+      items: {
+        create: [{
+          description: 'Fluoride varnish (26)',
+          procedureId: proc.id,
+          quantity: 1,
+          unitPrice: 25000.00,
+          total: 25000.00,
+        }],
+      },
+      payments: {
+        create: [{
+          method: 'CASH',
+          amount: 25000.00,
+          paidAt: new Date(),
+        }],
+      },
+    },
+  });
+
+  console.log({ branches: [tuv.code, maral.code], room1: room1.name, doctor: drEelen.fullName, patient: patientTemu.fullName, appt: appt.id, encounter: enc.id, invoice: inv.number });
 }
 
 main()
-  .catch((e) => {
-    console.error(e);
-    process.exit(1);
-  })
-  .finally(async () => {
-    await prisma.$disconnect();
-  });
+  .catch((e) => { console.error(e); process.exit(1); })
+  .finally(async () => { await prisma.$disconnect(); });
