@@ -1,22 +1,30 @@
-
 version: "3.9"
 
 networks:
-  default:
+  mdent-core_mdent_net:
     external: true
-    name: mdent-core_mdent_net   # your existing network
+    name: mdent-core_mdent_net
 
 services:
-  api:
-    build:
-      context: .
-      dockerfile: Dockerfile
+  mdent_api:
+    build: .
+    image: mdent/api:latest
     container_name: mdent_api
-    ports:
-      - "8082:3000"
+    networks:
+      - mdent-core_mdent_net
     environment:
       NODE_ENV: production
-      DATABASE_URL: postgresql://mdent:Monfamily2025@mdent_postgres:5432/mdent?schema=public
+      # ← use mdent_test here
+      DATABASE_URL: postgresql://mdent:Monfamily2025@mdent_postgres:5432/mdent_test?schema=public
+    ports:
+      - "8082:3000"
+    # If you want live code from server instead of image (optional):
+    # volumes:
+    #   - /opt/mdent-api:/app
+    command: sh -lc "npx prisma generate && node server.js"
     restart: unless-stopped
-    # If Portainer supports it in your version, this also prevents pulls:
-    # pull_policy: never
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/"]
+      interval: 15s
+      timeout: 3s
+      retries: 10
