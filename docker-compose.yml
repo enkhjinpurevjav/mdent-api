@@ -13,11 +13,10 @@ services:
       dockerfile: Dockerfile
     image: enkhjinpurevjav/mdent-api:latest
     working_dir: /app
-   # env_file:
-     # - .env                       # create .env (do NOT commit secrets) or use Portainer secrets
-   # environment:
-      #NODE_ENV: production
-     # PORT: 3000
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      # NOTE: set DATABASE_URL and secrets in Portainer (Environment or Secrets) — do NOT commit passwords here
     # For development you may keep a host volume; for production remove it:
     # volumes:
     #   - /opt/mdent-api:/app
@@ -34,22 +33,24 @@ services:
     networks:
       - default
 
-  # Frontend service - multi-stage build -> nginx (no host mount over /usr/share/nginx/html)
+  # Frontend service - build from repo root (context ".") using Dockerfile.frontend
   mdent_frontend:
     build:
-      context: ./frontend            # change to the actual frontend path (use . if repo root)
+      context: .                     # <-- changed from ./frontend to .  (repo root)
       dockerfile: Dockerfile.frontend
     image: enkhjinpurevjav/mdent-frontend:latest
     restart: unless-stopped
     networks:
       - default
+    # IMPORTANT: do NOT mount a host folder over /usr/share/nginx/html in production.
+    # If you previously had a volume like /opt/mdent-frontend/dist:/usr/share/nginx/html, REMOVE it.
 
-  # Postgres service (in-stack). If you already have Postgres in another stack, remove this service and remove depends_on above.
+  # Postgres service (optional in-stack DB)
   mdent_postgres:
     image: postgres:15
     environment:
       POSTGRES_USER: mdent
-      POSTGRES_PASSWORD: Monfamily2025   # move to Portainer secrets or .env in production
+      POSTGRES_PASSWORD: Monfamily2025   # move to Portainer Secrets for production
       POSTGRES_DB: mdent_test
     volumes:
       - mdent_postgres_data:/var/lib/postgresql/data
