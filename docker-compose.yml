@@ -1,30 +1,34 @@
 version: "3.9"
 
 networks:
-  mdent-core_mdent_net:
+  default:
     external: true
-    name: mdent-core_mdent_net
+    name: mdent-core_mdent_net  # your existing network
 
 services:
   mdent_api:
-    build: .
-    image: mdent/api:latest
+    image: node:20
     container_name: mdent_api
-    networks:
-      - mdent-core_mdent_net
+    working_dir: /app
     environment:
       NODE_ENV: production
-      # ← use mdent_test here
+      # You said you want mdent_test:
       DATABASE_URL: postgresql://mdent:Monfamily2025@mdent_postgres:5432/mdent_test?schema=public
+      PORT: 3000
+    volumes:
+      - /opt/mdent-api:/app   # use the code that already works on your server
     ports:
       - "8082:3000"
-    # If you want live code from server instead of image (optional):
-    # volumes:
-    #   - /opt/mdent-api:/app
-    command: sh -lc "npx prisma generate && node server.js"
+    command: >
+      sh -lc "
+        npm config set fund false audit false &&
+        ( npm install --legacy-peer-deps --omit=optional || npm install --legacy-peer-deps --force ) &&
+        npx prisma generate &&
+        node server.js
+      "
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3000/"]
-      interval: 15s
-      timeout: 3s
+      test: ["CMD", "curl", "-fsS", "http://localhost:3000/"]
+      interval: 20s
+      timeout: 5s
       retries: 10
