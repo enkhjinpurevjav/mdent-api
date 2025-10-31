@@ -15,17 +15,17 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     python3 make g++ pkg-config git ca-certificates \
  && rm -rf /var/lib/apt/lists/*
 
-# Keep npm at a predictable major (v10 works great with most lockfiles)
+# Keep npm at a predictable major
 RUN npm i -g npm@10 && npm -v
 
 # Install deps first for better layer caching
 COPY package*.json ./
-# Use a cache mount so rebuilds are faster
+# Use a cache mount if BuildKit is available; try npm ci first, fall back to npm install
 RUN --mount=type=cache,target=/root/.npm \
-    sh -lc 'if [ -f package-lock.json ]; then npm ci --omit=optional; else npm install --omit=optional; fi' \
+    npm ci --omit=optional || npm install --omit=optional \
     && npm config set legacy-peer-deps true
 
-# Generate Prisma client at build time (faster startup, fewer surprises)
+# Generate Prisma client at build time
 COPY prisma ./prisma
 RUN npx prisma generate
 
@@ -55,7 +55,6 @@ RUN chown -R node:node /app
 USER node
 
 # Optional: basic healthcheck hitting /health
-# (Install curl quickly, then clean apt cache)
 USER root
 RUN apt-get update && apt-get install -y --no-install-recommends curl \
  && rm -rf /var/lib/apt/lists/*
