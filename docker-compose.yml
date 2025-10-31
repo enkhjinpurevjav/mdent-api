@@ -1,20 +1,18 @@
 version: "3.9"
 
+networks:
+  mdent_core:
+    external: true
+
 services:
   api:
     build: .
     image: mdent/api:latest
-    container_name: mdent_api         # keep this so nginx proxy works
+    container_name: mdent_api
+    networks: [mdent_core]
     ports:
-      - "8082:3000"                   # mdent_proxy expects host:8082 (and/or you proxy by name)
+      - "8082:3000"
     environment:
       NODE_ENV: production
       DATABASE_URL: postgresql://mdent:Monfamily2025@mdent_postgres:5432/mdent?schema=public
-    networks:
-      - mdent-core_mdent_net                          # attach to your existing network
     restart: unless-stopped
-
-networks:
-  core:
-    external: true
-    name: mdent-core_mdent_net        # <-- your actual network name
