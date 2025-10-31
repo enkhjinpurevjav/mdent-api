@@ -1,16 +1,15 @@
 version: "3.9"
 
 networks:
-  mdent-core_mdent_net:
+  default:
     external: true
-    name: mdent-core_mdent_net
+    name: mdent-core_mdent_net   # ← your existing network
 
 services:
   api:
     build: .
     image: mdent/api:latest
     container_name: mdent_api
-    networks: [mdent-core_mdent_net]
     ports:
       - "8082:3000"
     environment:
