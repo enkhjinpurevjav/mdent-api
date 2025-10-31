@@ -1,4 +1,4 @@
-// prisma/seed.js
+// prisma/seed.js  (CommonJS)
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 
@@ -20,16 +20,16 @@ async function main() {
   const room1 = await prisma.room.create({ data: { name: 'Room 1', branchId: tuv.id } });
   const room2 = await prisma.room.create({ data: { name: 'Room 2', branchId: tuv.id } });
 
-  // Doctors
+  // Doctor
   const drEelen = await prisma.doctor.create({
     data: { fullName: 'Dr. Eelen', branchId: tuv.id, phone: '9911-0001' },
   });
 
-  // Patients (regNo unique, phone not unique)
+  // Patient
   const patientTemu = await prisma.patient.create({
     data: {
       fullName: 'Temuujin Baatar',
-      regNo: 'АА12345678',
+      regNo: 'AA12345678',
       phone: '99110002',
       gender: 'MALE',
       branchId: tuv.id,
@@ -58,7 +58,7 @@ async function main() {
     },
   });
 
-  // Encounter + notes
+  // Encounter
   const enc = await prisma.encounter.create({
     data: {
       patientId: patientTemu.id,
@@ -74,7 +74,7 @@ async function main() {
     data: {
       encounterId: enc.id,
       patientId: patientTemu.id,
-      toothCode: '26', // FDI
+      toothCode: '26',
       note: 'Visible white spot, early demineralization.',
     },
   });
@@ -87,9 +87,9 @@ async function main() {
       code: 'FL-26',
       name: 'Fluoride varnish (tooth 26)',
       toothCode: '26',
-      unitPrice: 25000.00,
+      unitPrice: 25000.0,
       quantity: 1,
-      totalAmount: 25000.00,
+      totalAmount: 25000.0,
     },
   });
 
@@ -100,32 +100,49 @@ async function main() {
       branchId: tuv.id,
       number: 'INV-00001',
       status: 'PAID',
-      subtotal: 25000.00,
+      subtotal: 25000.0,
       tax: 0,
       discount: 0,
-      total: 25000.00,
+      total: 25000.0,
       items: {
-        create: [{
-          description: 'Fluoride varnish (26)',
-          procedureId: proc.id,
-          quantity: 1,
-          unitPrice: 25000.00,
-          total: 25000.00,
-        }],
+        create: [
+          {
+            description: 'Fluoride varnish (26)',
+            procedureId: proc.id,
+            quantity: 1,
+            unitPrice: 25000.0,
+            total: 25000.0,
+          },
+        ],
       },
       payments: {
-        create: [{
-          method: 'CASH',
-          amount: 25000.00,
-          paidAt: new Date(),
-        }],
+        create: [
+          {
+            method: 'CASH',
+            amount: 25000.0,
+            paidAt: new Date(),
+          },
+        ],
       },
     },
   });
 
-  console.log({ branches: [tuv.code, maral.code], room1: room1.name, doctor: drEelen.fullName, patient: patientTemu.fullName, appt: appt.id, encounter: enc.id, invoice: inv.number });
+  console.log({
+    branches: [tuv.code, maral.code],
+    room1: room1.name,
+    doctor: drEelen.fullName,
+    patient: patientTemu.fullName,
+    appt: appt.id,
+    encounter: enc.id,
+    invoice: inv.number,
+  });
 }
 
 main()
-  .catch((e) => { console.error(e); process.exit(1); })
-  .finally(async () => { await prisma.$disconnect(); });
+  .catch((e) => {
+    console.error(e);
+    process.exit(1);
+  })
+  .finally(async () => {
+    await prisma.$disconnect();
+  });
