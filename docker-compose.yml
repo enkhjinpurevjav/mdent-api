@@ -13,11 +13,11 @@ services:
       dockerfile: Dockerfile
     image: enkhjinpurevjav/mdent-api:latest
     working_dir: /app
-    env_file:
-      - .env                       # create .env (do NOT commit secrets) or use Portainer secrets
-    environment:
-      NODE_ENV: production
-      PORT: 3000
+   # env_file:
+     # - .env                       # create .env (do NOT commit secrets) or use Portainer secrets
+   # environment:
+      #NODE_ENV: production
+     # PORT: 3000
     # For development you may keep a host volume; for production remove it:
     # volumes:
     #   - /opt/mdent-api:/app
