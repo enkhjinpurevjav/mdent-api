@@ -1,14 +1,16 @@
+
 version: "3.9"
 
 networks:
   default:
     external: true
-    name: mdent-core_mdent_net   # ← your existing network
+    name: mdent-core_mdent_net   # your existing network
 
 services:
   api:
-    build: .
-    image: mdent/api:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
     container_name: mdent_api
     ports:
       - "8082:3000"
@@ -16,3 +18,5 @@ services:
       NODE_ENV: production
       DATABASE_URL: postgresql://mdent:Monfamily2025@mdent_postgres:5432/mdent?schema=public
     restart: unless-stopped
+    # If Portainer supports it in your version, this also prevents pulls:
+    # pull_policy: never
