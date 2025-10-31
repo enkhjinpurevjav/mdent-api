@@ -8,7 +8,7 @@ networks:
 services:
   mdent_api:
     image: node:20
-    container_name: mdent_api
+  
     working_dir: /app
     environment:
       NODE_ENV: production
